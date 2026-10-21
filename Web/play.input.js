@@ -73,6 +73,14 @@
             this.playModule = playModule;
             this.activeKeys = new Set();
             this.polling = false;
+            window._jePlayInputManager = this;
+        }
+
+        // Releases every currently-held simulated key. Called by the menu
+        // navigation layer (jellyemu.gamepadnav.js) when it takes ownership
+        // of the controller so no key stays "stuck" in the emulated game.
+        releaseAll() {
+            [...this.activeKeys].forEach(code => this.simulateKey(code, false));
         }
 
         init(customBindings) {
@@ -136,6 +144,9 @@
 
             window.addEventListener('keydown', (e) => {
                 if (e.repeat) return;
+                // Menu mode owns the input devices: presses are navigation,
+                // releases still pass through to avoid stuck keys.
+                if (window._jeMenuMode) return;
                 const mapped = keyMap[e.code];
                 if (mapped) {
                     this.simulateKey(mapped, true);
@@ -176,6 +187,7 @@
 
                 const press = (e) => {
                     e.preventDefault();
+                    if (window._jeMenuMode) return;
                     btn.classList.add('je-pressed');
                     this.simulateKey(keyCode, true);
                 };
@@ -225,12 +237,16 @@
                         const gp = gamepads[i];
                         if (!gp) continue;
 
+                        // Menu mode owns the gamepad: force every simulated key
+                        // to "released" while it is active.
+                        const suspend = !!window._jeMenuMode;
+
                         // Digital Buttons & Triggers
                         gp.buttons.forEach((btn, idx) => {
                             const code = standardButtons[idx];
                             if (code) {
                                 const isDown = btn.pressed || btn.value > 0.45;
-                                this.simulateKey(code, isDown);
+                                this.simulateKey(code, suspend ? false : isDown);
                             }
                         });
 
@@ -239,19 +255,19 @@
                         const lx = gp.axes[0] || 0;
                         const ly = gp.axes[1] || 0;
 
-                        this.simulateKey(PS2_KEYS.L_STICK_LEFT, lx < -deadzone);
-                        this.simulateKey(PS2_KEYS.L_STICK_RIGHT, lx > deadzone);
-                        this.simulateKey(PS2_KEYS.L_STICK_UP, ly < -deadzone);
-                        this.simulateKey(PS2_KEYS.L_STICK_DOWN, ly > deadzone);
+                        this.simulateKey(PS2_KEYS.L_STICK_LEFT, !suspend && lx < -deadzone);
+                        this.simulateKey(PS2_KEYS.L_STICK_RIGHT, !suspend && lx > deadzone);
+                        this.simulateKey(PS2_KEYS.L_STICK_UP, !suspend && ly < -deadzone);
+                        this.simulateKey(PS2_KEYS.L_STICK_DOWN, !suspend && ly > deadzone);
 
                         // Right Analog Stick (Axes 2, 3)
                         const rx = gp.axes[2] || 0;
                         const ry = gp.axes[3] || 0;
 
-                        this.simulateKey(PS2_KEYS.R_STICK_LEFT, rx < -deadzone);
-                        this.simulateKey(PS2_KEYS.R_STICK_RIGHT, rx > deadzone);
-                        this.simulateKey(PS2_KEYS.R_STICK_UP, ry < -deadzone);
-                        this.simulateKey(PS2_KEYS.R_STICK_DOWN, ry > deadzone);
+                        this.simulateKey(PS2_KEYS.R_STICK_LEFT, !suspend && rx < -deadzone);
+                        this.simulateKey(PS2_KEYS.R_STICK_RIGHT, !suspend && rx > deadzone);
+                        this.simulateKey(PS2_KEYS.R_STICK_UP, !suspend && ry < -deadzone);
+                        this.simulateKey(PS2_KEYS.R_STICK_DOWN, !suspend && ry > deadzone);
                     }
                 } catch (e) {
                     // Ignore transient gamepad polling errors

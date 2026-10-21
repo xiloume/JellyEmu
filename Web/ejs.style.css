@@ -1352,3 +1352,13 @@ canvas.ejs_canvas,
     background: rgba(255, 255, 255, 0.4);
 }
 
+
+/* Gamepad menu navigation focus ring (jellyemu.gamepadnav.js) */
+.je-gp-focus {
+    outline: 3px solid #00a4dc !important;
+    outline-offset: 2px;
+    border-radius: 10px;
+    box-shadow: 0 0 14px rgba(0, 164, 220, 0.55) !important;
+    position: relative;
+    z-index: 2;
+}

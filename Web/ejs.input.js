@@ -462,10 +462,27 @@
 
     var _jeKbDown = {};
     var _popupOpen = function () { return !!window._jePopupOpen; };
+    // When the JellyEmu menu layer owns the gamepad/keyboard (menu mode or an
+    // open popup), in-game inputs must not be simulated — mirrors the existing
+    // keyboard-only popup gate.
+    var _jeInputsSuspended = function () { return _popupOpen() || !!window._jeMenuMode; };
+
+    // Releases every currently-held simulated input. Called by the menu
+    // navigation layer when it takes ownership of the controller so no key
+    // stays "stuck" pressed in the emulated game while menus are browsed.
+    window._jeReleaseAllInputs = function () {
+        try {
+            Object.keys(_jeSimulatedState).forEach(function (k) {
+                if (_jeSimulatedState[k]) _jeSimulate(parseInt(k, 10), false);
+            });
+            Object.keys(_jeGpActiveState).forEach(function (k) { _jeGpActiveState[k] = false; });
+            _jeKbDown = {};
+        } catch (e) { console.warn('[JellyEmu Input] Release-all error:', e); }
+    };
 
     document.addEventListener('keydown', function (ev) {
         if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'SELECT')) return;
-        if (_popupOpen()) return;
+        if (_jeInputsSuspended()) return;
         var kc = ev.keyCode;
         if (_jeKbDown[kc]) return;
         _jeKbDown[kc] = true;
@@ -658,7 +675,7 @@
                     }
 
                     // If not mapping, dispatch to gameplay simulation
-                    if (!_jeActiveGpListen) {
+                    if (!_jeActiveGpListen && !_jeInputsSuspended()) {
                         var matched = _jeFindBindingsForGp(label);
                         if (matched.length === 0) {
                             matched = _jeFindBindingsForGp(bi);
@@ -702,7 +719,7 @@
                     if (_isInputWindowOpen()) {
                         console.log('[JellyEmu Gamepad RAW] Pad #' + gp.index + ' Axis ' + ai + ' [' + posLabel + '] ' + (isMovedPos ? 'MOVED' : 'RELEASED') + ' (val: ' + aVal.toFixed(2) + ')');
                     }
-                    if (!_jeActiveGpListen) {
+                    if (!_jeActiveGpListen && !_jeInputsSuspended()) {
                         _jeHandleAxisSimulation(posLabel, isMovedPos);
                     }
                 }
@@ -712,13 +729,14 @@
                     if (_isInputWindowOpen()) {
                         console.log('[JellyEmu Gamepad RAW] Pad #' + gp.index + ' Axis ' + ai + ' [' + negLabel + '] ' + (isMovedNeg ? 'MOVED' : 'RELEASED') + ' (val: ' + aVal.toFixed(2) + ')');
                     }
-                    if (!_jeActiveGpListen) {
+                    if (!_jeActiveGpListen && !_jeInputsSuspended()) {
                         _jeHandleAxisSimulation(negLabel, isMovedNeg);
                     }
                 }
             }
             // Check Hotkey combos (e.g. EXIT GAME combos like SELECT+START or single hotkey button)
-            if (!_jeActiveGpListen) {
+            // SELECT+START is reserved for the menu-mode toggle (jellyemu.gamepadnav.js)
+            if (!_jeActiveGpListen && !_jeInputsSuspended()) {
                 for (var hIdx in _jeBindings) {
                     var numIdx = parseInt(hIdx, 10);
                     if (numIdx < 24) continue;
@@ -727,7 +745,7 @@
 
                     ['gp1', 'gp2'].forEach(function (gField) {
                         var combo = hBind[gField];
-                        if (combo) {
+                        if (combo && combo !== 'SELECT+START' && combo !== 'START+SELECT') {
                             if (_jeCheckGamepadComboPressed(gp, combo)) {
                                 if (!_jeComboTriggered[numIdx]) {
                                     _jeComboTriggered[numIdx] = true;

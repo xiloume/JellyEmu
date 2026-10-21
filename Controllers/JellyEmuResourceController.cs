@@ -271,6 +271,19 @@ namespace JellyEmu.Controllers
         }
 
         /// <summary>
+        /// Serves the gamepad menu navigation script.
+        /// Path: GET /jellyemu/assets/jellyemu.gamepadnav.js
+        /// </summary>
+        [HttpGet("/jellyemu/assets/jellyemu.gamepadnav.js")]
+        [Produces("application/javascript")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult JellyEmuGamepadNavJs()
+        {
+            return ServeEmbeddedJs("jellyemu.gamepadnav.js");
+        }
+
+        /// <summary>
         /// Serves downloaded Play! wasm core runtime files (Play.js, Play.wasm).
         /// Path: GET /jellyemu/play/runtime/{*filename}
         /// </summary>
